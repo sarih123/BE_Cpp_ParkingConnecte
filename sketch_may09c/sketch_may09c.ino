@@ -3,8 +3,6 @@
 #include <ESP8266WebServer.h>
 #include <time.h>
 
-// I love INSA Toulouse
-
 // Définition des broches
 #define SERVO_IN_PIN D3       // Servo pour l'entrée
 #define ULTRASONIC_IN_PIN D7  // Capteur ultrasonique pour l'entrée
