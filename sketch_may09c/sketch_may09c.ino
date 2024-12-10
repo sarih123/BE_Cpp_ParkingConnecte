@@ -3,6 +3,11 @@
 #include <ESP8266WebServer.h>
 #include <time.h>
 
+// MQTT access
+const char* mqttServer = "v1ef36b5.ala.dedicated.aws.emqxcloud.com";
+const int mqttPort = 1883;
+const char* mqttUser = "sarih123";
+const char* mqttPassword = "Soleil2673";
 // Définition des broches
 #define SERVO_IN_PIN D3       // Servo pour l'entrée
 #define ULTRASONIC_IN_PIN D7  // Capteur ultrasonique pour l'entrée
@@ -16,7 +21,7 @@ Parking parking(SERVO_IN_PIN, ULTRASONIC_IN_PIN, SERVO_OUT_PIN, ULTRASONIC_OUT_P
 const char* ssid = "iPhone de Hassan";
 const char* password = "azerty12345";
 ESP8266WebServer server(80);
-
+MqttClient mqttClient(mqttServer, mqttPort, mqttUser, mqttPassword);
 // Gestion de la page principale (interface HTML)
 void handleRoot() {
     String html = R"====(
@@ -192,7 +197,8 @@ void setup() {
     Serial.println("Connecté au WiFi !");
     Serial.print("Adresse IP : ");
     Serial.println(WiFi.localIP());
-
+    // Connexion au serveur MQTT
+    mqttClient.connectMQTT();
     configTime(0, 0, "pool.ntp.org"); // Synchronisation NTP pour l'heure
 
     server.on("/", handleRoot);
@@ -203,6 +209,9 @@ void setup() {
 }
 
 void loop() {
+    // Maintenir la connexion MQTT active et vérifier le payload
+    mqttClient.loop(); 
+    mqttClient.publishData("data","ParkingPlein");
     server.handleClient();
     parking.loop();
 }

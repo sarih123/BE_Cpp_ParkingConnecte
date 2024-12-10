@@ -2,6 +2,7 @@
 #include <time.h>
 #include <ESP8266WiFi.h>
 #include <String>
+#include <stdexcept> // Inclure la bibliothèque pour les exceptions standard
 
 // Variables pour suivre les demandes simultanées d'entrée et de sortie
 bool entryRequested = false;
@@ -61,6 +62,9 @@ void Parking::checkWiFiConnection() {
             lcd.print("WiFi erreur !");
             lcd.setCursor(0, 1);
             lcd.print("Verifier config.");
+
+            // Lancer une exception
+            throw std::runtime_error("Pas de connexion WiFi");
         }
 
         delay(3000);  // Affiche l'état final pendant 3 secondes
@@ -97,7 +101,15 @@ void Parking::setup() {
 
 void Parking::loop() {
     delay(100);
-    checkWiFiConnection();
+    try {
+        checkWiFiConnection();
+    } catch (const std::runtime_error& e) {
+        // Gestion de l'erreur WiFi
+        handleError(e.what());
+        // Ici, vous pouvez choisir de réessayer plus tard ou simplement continuer
+        // afin que le programme ne reste pas bloqué
+    }
+
     manageEntryAndExit();  // Nouvelle gestion combinée
     updateLCD();
 }
@@ -192,7 +204,6 @@ void Parking::updateLCD() {
     }
 }
 
-
 String Parking::generateHTML() {
     String html = R"====(
     <!DOCTYPE html>
@@ -210,11 +221,11 @@ String Parking::generateHTML() {
                         const logTable = document.getElementById('eventLog');
                         logTable.innerHTML = ''; // Clear previous entries
                         data.eventLog.forEach(event => {
-                            const row = <tr>
+                            const row = `<tr>
                                 <td>${event.description}</td>
                                 <td>${event.time}</td>
                                 <td>${event.date}</td>
-                            </tr>;
+                            </tr>`;
                             logTable.innerHTML += row;
                         });
                     })
@@ -271,4 +282,39 @@ int Parking::getMaxPlaces() {
 
 std::vector<Event> Parking::getEventLog() {
     return eventLog;
+}
+
+// Implémentation de MqttClient
+MqttClient::MqttClient(const char* server, int port, const char* user, const char* password)
+    : server(server), port(port), user(user), password(password), mqttClient(wifiClient) {
+    mqttClient.setServer(server, port);
+}
+
+void MqttClient::connectMQTT() {
+    while (!mqttClient.connected()) {
+        Serial.println("Connexion au serveur MQTT...");
+        String clientId = "ESP8266Client-";
+        clientId += String(random(0xffff), HEX);
+        if (mqttClient.connect(clientId.c_str(), user, password)) {
+            Serial.println("Connecté au serveur MQTT !");
+        } else {
+            Serial.print("Échec, rc=");
+            Serial.println(mqttClient.state());
+            delay(5000);
+        }
+    }
+}
+
+void MqttClient::publishData(const char* topic, const char* data) {
+    char payload[50];
+    snprintf(payload, sizeof(payload), "%s", data); // Pas de conversion, car 'data' est déjà une chaîne
+    mqttClient.publish(topic, payload);
+    Serial.print("Publié sur ");
+    Serial.print(topic);
+    Serial.print(" : ");
+    Serial.println(payload);
+}
+
+void MqttClient::loop() {
+    mqttClient.loop();
 }
